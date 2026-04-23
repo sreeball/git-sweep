@@ -1,0 +1,15 @@
+# Python
+
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+env/
+build/
+develop-eggs/
+*.egg
+dist/
+.venv/
+.idea/
+.Python
+.tox/
