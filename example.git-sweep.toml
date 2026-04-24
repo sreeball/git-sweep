@@ -1,0 +1,34 @@
+# git-sweep configuration file
+# Place this file as .git-sweep.toml in your project root or home directory.
+# git-sweep walks up the directory tree to find the nearest config file.
+
+[sweep]
+# List of repository paths to scan.
+# If empty, git-sweep uses the current working directory.
+repos = [
+    # "/path/to/repo1",
+    # "/path/to/repo2",
+]
+
+# Branches that will NEVER be deleted, regardless of merge status.
+protected_branches = [
+    "main",
+    "master",
+    "develop",
+    "staging",
+    "production",
+]
+
+# When true, only print what would be deleted — no changes are made.
+# Recommended to run with dry_run = true first!
+dry_run = true
+
+# Also delete the corresponding remote-tracking branch when deleting locally.
+delete_remote = false
+
+# Name of the remote to operate against.
+remote = "origin"
+
+# Only consider branches whose last commit is older than this many days.
+# Comment out or remove to disable age filtering.
+# older_than_days = 60
