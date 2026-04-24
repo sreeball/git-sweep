@@ -54,6 +54,13 @@ def test_get_merged_branches_detects_merged(fake_repo: Path):
     assert all(b.is_merged for b in branches)
 
 
+def test_get_merged_branches_excludes_base_branch(fake_repo: Path):
+    """The base branch itself should never appear in the merged branches list."""
+    branches = get_merged_branches(fake_repo, base_branch="main")
+    names = [b.name for b in branches]
+    assert "main" not in names
+
+
 def test_scan_repo_non_repo(tmp_path: Path):
     result = scan_repo(tmp_path)
     assert result.error is not None
