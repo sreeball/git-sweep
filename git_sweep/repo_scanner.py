@@ -1,91 +1,79 @@
-"""Module for scanning git repositories and identifying merged/stale branches."""
+"""Scan a single git repository for merged and stale branches."""
+from __future__ import annotations
 
 import subprocess
 from dataclasses import dataclass, field
-from pathlib import Path
-from typing import Optional
+from typing import List, Optional
 
 
 @dataclass
 class BranchInfo:
     name: str
-    is_merged: bool
+    is_merged: bool = False
+    last_author: Optional[str] = None
     last_commit_date: Optional[str] = None
-    tracking_remote: Optional[str] = None
 
 
 @dataclass
 class RepoScanResult:
-    path: Path
-    merged_branches: list[BranchInfo] = field(default_factory=list)
-    stale_branches: list[BranchInfo] = field(default_factory=list)
+    repo_path: str
+    merged_branches: List[BranchInfo] = field(default_factory=list)
     error: Optional[str] = None
 
 
-def _run_git(args: list[str], cwd: Path) -> tuple[str, str, int]:
-    result = subprocess.run(
-        ["git"] + args,
+def _run_git(cmd: List[str], cwd: str, **kwargs) -> subprocess.CompletedProcess:
+    return subprocess.run(
+        ["git"] + cmd,
         cwd=cwd,
         capture_output=True,
         text=True,
+        **kwargs,
     )
-    return result.stdout.strip(), result.stderr.strip(), result.returncode
 
 
-def is_git_repo(path: Path) -> bool:
-    """Check whether the given path is a git repository."""
-    _, _, code = _run_git(["rev-parse", "--git-dir"], path)
-    return code == 0
+def is_git_repo(path: str) -> bool:
+    """Return True if *path* is the root of a git repository."""
+    result = _run_git(["rev-parse", "--git-dir"], cwd=path)
+    return result.returncode == 0
 
 
-def get_merged_branches(path: Path, base_branch: str = "main") -> list[BranchInfo]:
-    """Return local branches that have been merged into base_branch."""
-    stdout, _, code = _run_git(
-        ["branch", "--merged", base_branch, "--format=%(refname:short)"], path
+def get_merged_branches(
+    repo_path: str,
+    base_branch: str = "main",
+    protected: Optional[List[str]] = None,
+) -> RepoScanResult:
+    """Return branches fully merged into *base_branch*."""
+    if protected is None:
+        protected = ["main", "master", "develop", "HEAD"]
+
+    result = _run_git(
+        ["branch", "--merged", base_branch],
+        cwd=repo_path,
     )
-    if code != 0:
-        return []
-
-    branches = []
-    for name in stdout.splitlines():
-        name = name.strip()
-        if not name or name == base_branch:
-            continue
-        date_out, _, _ = _run_git(
-            ["log", "-1", "--format=%ci", name], path
+    if result.returncode != 0:
+        return RepoScanResult(
+            repo_path=repo_path,
+            error=result.stderr.strip() or "git branch --merged failed",
         )
-        branches.append(BranchInfo(name=name, is_merged=True, last_commit_date=date_out))
-    return branches
+
+    branches: List[BranchInfo] = []
+    for line in result.stdout.splitlines():
+        name = line.strip().lstrip("* ").strip()
+        if not name or name in protected:
+            continue
+        branches.append(BranchInfo(name=name, is_merged=True))
+
+    return RepoScanResult(repo_path=repo_path, merged_branches=branches)
 
 
-def scan_repo(path: Path, base_branch: str = "main", stale_days: int = 90) -> RepoScanResult:
-    """Scan a single repository for merged and stale branches."""
-    result = RepoScanResult(path=path)
-
-    if not is_git_repo(path):
-        result.error = f"{path} is not a git repository"
-        return result
-
-    result.merged_branches = get_merged_branches(path, base_branch)
-
-    stdout, _, code = _run_git(
-        ["for-each-ref", "--sort=committerdate",
-         f"--format=%(refname:short) %(committerdate:relative)",
-         "refs/heads/"],
-        path,
+def enrich_branch_info(repo_path: str, branch: BranchInfo) -> BranchInfo:
+    """Populate last_author and last_commit_date on *branch* in-place."""
+    result = _run_git(
+        ["log", "-1", "--format=%an|%ci", branch.name],
+        cwd=repo_path,
     )
-    if code == 0:
-        for line in stdout.splitlines():
-            parts = line.split(" ", 1)
-            if len(parts) < 2:
-                continue
-            name, rel_date = parts
-            if name == base_branch:
-                continue
-            already_merged = any(b.name == name for b in result.merged_branches)
-            if not already_merged and "months" in rel_date or "year" in rel_date:
-                result.stale_branches.append(
-                    BranchInfo(name=name, is_merged=False, last_commit_date=rel_date)
-                )
-
-    return result
+    if result.returncode == 0 and "|" in result.stdout:
+        author, date = result.stdout.strip().split("|", 1)
+        branch.last_author = author.strip()
+        branch.last_commit_date = date.strip()
+    return branch

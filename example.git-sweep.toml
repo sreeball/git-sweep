@@ -1,34 +1,43 @@
-# git-sweep configuration file
-# Place this file as .git-sweep.toml in your project root or home directory.
-# git-sweep walks up the directory tree to find the nearest config file.
+# git-sweep configuration example
+# Place this file at the root of your workspace or home directory
+# as .git-sweep.toml
 
 [sweep]
-# List of repository paths to scan.
-# If empty, git-sweep uses the current working directory.
-repos = [
-    # "/path/to/repo1",
-    # "/path/to/repo2",
+# Branch to treat as the integration branch
+base_branch = "main"
+
+# Branches that will never be deleted
+protected_branches = ["main", "master", "develop", "staging", "HEAD"]
+
+# Only delete branches whose last commit is older than this threshold.
+# Supported units: d (days), w (weeks), m (months, approx 30 days)
+# Set to "0d" to disable age filtering.
+min_age = "30d"
+
+# Maximum directory depth to search for git repos (0 = current dir only)
+max_depth = 3
+
+# Paths to exclude from scanning (glob patterns)
+exclude = [
+    "**/vendor/**",
+    "**/node_modules/**",
+    "**/.cache/**",
 ]
 
-# Branches that will NEVER be deleted, regardless of merge status.
-protected_branches = [
-    "main",
-    "master",
-    "develop",
-    "staging",
-    "production",
-]
+[remote]
+# Automatically prune stale remote-tracking references
+prune_stale = true
 
-# When true, only print what would be deleted — no changes are made.
-# Recommended to run with dry_run = true first!
-dry_run = true
+# Remote name to prune
+remote_name = "origin"
 
-# Also delete the corresponding remote-tracking branch when deleting locally.
-delete_remote = false
+[output]
+# Output format: "text" or "json"
+format = "text"
 
-# Name of the remote to operate against.
-remote = "origin"
+# Colorize terminal output
+color = true
 
-# Only consider branches whose last commit is older than this many days.
-# Comment out or remove to disable age filtering.
-# older_than_days = 60
+[snapshot]
+# Directory where sweep snapshots are stored
+dir = "~/.git-sweep/snapshots"
