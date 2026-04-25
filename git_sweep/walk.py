@@ -17,6 +17,14 @@ def find_repos(
 
     Stops descending once *max_depth* is reached or a .git directory is found
     (nested repos are not traversed further).
+
+    Args:
+        root: The root directory to start scanning from.
+        max_depth: Maximum directory depth to recurse into (default: 3).
+        skip_dirs: Directory names to skip during traversal (e.g. ``["node_modules"]``).
+
+    Yields:
+        Absolute paths to discovered git repositories.
     """
     skip = set(skip_dirs or [])
     root = os.path.abspath(root)
@@ -46,7 +54,16 @@ def collect_repos(
     max_depth: int = 3,
     skip_dirs: Optional[List[str]] = None,
 ) -> List[str]:
-    """Return a deduplicated, sorted list of repo paths from one or more roots."""
+    """Return a deduplicated, sorted list of repo paths from one or more roots.
+
+    Args:
+        paths: One or more root directories to scan.
+        max_depth: Maximum directory depth to recurse into (default: 3).
+        skip_dirs: Directory names to skip during traversal.
+
+    Returns:
+        Sorted list of unique absolute paths to discovered git repositories.
+    """
     seen: set[str] = set()
     result: List[str] = []
     for p in paths:
